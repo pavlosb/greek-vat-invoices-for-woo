@@ -190,14 +190,42 @@
     margin-bottom: 0;
 }
 
-/* Order List Column */
-.grvatin-invoice-column {
-    font-weight: 600;
+/* Orders list: invoice marker column */
+.wp-list-table th.column-grvatin_doc,
+.wp-list-table td.column-grvatin_doc {
+    width: 3.4em;
+    text-align: center;
+}
+
+.wp-list-table .grvatin-doc-head .dashicons {
+    color: #646970;
+}
+
+.wp-list-table .grvatin-doc-head__label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(1px, 1px, 1px, 1px);
+    white-space: nowrap;
+}
+
+.grvatin-doc-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: #f0f6fc;
     color: #2271b1;
 }
 
-.grvatin-invoice-column .dashicons {
-    vertical-align: middle;
+.grvatin-doc-icon .dashicons {
+    width: 16px;
+    height: 16px;
+    font-size: 16px;
 }
 
 /* Loading State */

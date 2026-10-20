@@ -83,6 +83,7 @@ class GRVATIN_Greek_VAT_Invoices {
         require_once GRVATIN_PLUGIN_DIR . 'includes/class-order-handler.php';
         require_once GRVATIN_PLUGIN_DIR . 'includes/class-order-preview.php';
         require_once GRVATIN_PLUGIN_DIR . 'includes/class-order-admin-card.php';
+        require_once GRVATIN_PLUGIN_DIR . 'includes/class-order-list.php';
         require_once GRVATIN_PLUGIN_DIR . 'includes/class-block-checkout.php';
     }
     
@@ -113,6 +114,7 @@ class GRVATIN_Greek_VAT_Invoices {
         GRVATIN_Order_Handler::get_instance();
         GRVATIN_Order_Preview::get_instance();
         GRVATIN_Order_Admin_Card::get_instance();
+        GRVATIN_Order_List::get_instance();
     }
     
     /**
