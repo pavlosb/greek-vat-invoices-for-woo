@@ -323,6 +323,19 @@ function capture($hook, $column, $arg) {
     return trim(ob_get_clean());
 }
 
+// The statuses WooCommerce's "All" list shows, written out independently of the class under test
+function list_statuses() {
+    return array_values(array_intersect(
+        array_keys(wc_get_order_statuses()),
+        get_post_stati(array('show_in_admin_all_list' => true), 'names')
+    ));
+}
+
+function has_no_meta_query($query) {
+    $mq = $query->get('meta_query');
+    return $mq === '' || $mq === array();
+}
+
 echo "GRVATIN_Order_List checks (section: $section)\n";
 
 if (!class_exists('GRVATIN_Order_List')) {
@@ -412,12 +425,8 @@ if (wants('cell')) {
 if (wants('filter')) {
     echo "filter\n";
 
-    $hook     = 'woocommerce_order_list_table_prepare_items_query_args';
-    $statuses = array_values(array_intersect(
-        array_keys(wc_get_order_statuses()),
-        get_post_stati(array('show_in_admin_all_list' => true), 'names')
-    ));
-    $base = array('type' => 'shop_order', 'status' => $statuses, 'limit' => -1, 'return' => 'ids');
+    $hook = 'woocommerce_order_list_table_prepare_items_query_args';
+    $base = array('type' => 'shop_order', 'status' => list_statuses(), 'limit' => -1, 'return' => 'ids');
 
     unset($_GET['grvatin_doc']);
     check('no parameter: query args untouched', apply_filters($hook, $base) === $base);
@@ -481,25 +490,25 @@ if (wants('filter')) {
     $q = $make_query('post');
     $GLOBALS['wp_the_query'] = $q;
     $list->filter_classic_query($q);
-    check('classic: other post types untouched', $q->get('meta_query') === '' || $q->get('meta_query') === array());
+    check('classic: other post types untouched', has_no_meta_query($q));
 
     $q = $make_query('shop_order');
     $GLOBALS['wp_the_query'] = new WP_Query();
     $list->filter_classic_query($q);
-    check('classic: a secondary query is untouched', $q->get('meta_query') === '' || $q->get('meta_query') === array());
+    check('classic: a secondary query is untouched', has_no_meta_query($q));
 
     $q = $make_query('shop_order');
     $GLOBALS['wp_the_query'] = $q;
     $GLOBALS['pagenow']      = 'index.php';
     $list->filter_classic_query($q);
-    check('classic: outside edit.php untouched', $q->get('meta_query') === '' || $q->get('meta_query') === array());
+    check('classic: outside edit.php untouched', has_no_meta_query($q));
 
     $q = $make_query('shop_order');
     $GLOBALS['wp_the_query'] = $q;
     $GLOBALS['pagenow']      = 'edit.php';
     unset($_GET['grvatin_doc']);
     $list->filter_classic_query($q);
-    check('classic: no parameter untouched', $q->get('meta_query') === '' || $q->get('meta_query') === array());
+    check('classic: no parameter untouched', has_no_meta_query($q));
 
     $GLOBALS['wp_the_query'] = $saved_query;
     $GLOBALS['pagenow']      = $saved_page;
@@ -525,12 +534,7 @@ if (wants('view')) {
     check('count rose by the two visible seeded invoices (not receipt, untyped or trashed)', $n === $before + 2, "before=$before now=$n");
 
     $_GET['grvatin_doc'] = 'invoice';
-    $status_args = array(
-        'type'   => 'shop_order',
-        'status' => array_values(array_intersect(array_keys(wc_get_order_statuses()), get_post_stati(array('show_in_admin_all_list' => true), 'names'))),
-        'limit'  => -1,
-        'return' => 'ids',
-    );
+    $status_args = array('type' => 'shop_order', 'status' => list_statuses(), 'limit' => -1, 'return' => 'ids');
     $rows = wc_get_orders(apply_filters('woocommerce_order_list_table_prepare_items_query_args', $status_args));
     check('the count equals the rows the filter lists', count($rows) === $n, 'rows=' . count($rows) . " count=$n");
 

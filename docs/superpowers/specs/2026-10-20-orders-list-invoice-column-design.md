@@ -41,7 +41,7 @@ WooCommerce has two list screens, so every piece is hooked twice:
 
 | Piece | Orders table (HPOS) | Classic (posts) screen |
 |---|---|---|
-| Add column | `woocommerce_shop_order_list_table_columns` | `manage_edit-shop_order_columns` |
+| Add column | `woocommerce_shop_order_list_table_columns` | `manage_shop_order_posts_columns` (priority 20: WooCommerce rebuilds this list at priority 10) |
 | Print cell | `woocommerce_shop_order_list_table_custom_column` (gets the order) | `manage_shop_order_posts_custom_column` (gets the post ID, load with `wc_get_order()`) |
 | Add filter link | `views_woocommerce_page_wc-orders` | `views_edit-shop_order` |
 | Apply filter | `woocommerce_order_list_table_prepare_items_query_args` | `pre_get_posts` (main query of that screen only) |
@@ -74,7 +74,10 @@ site; the classic-screen ones are standard WordPress hooks.
   WooCommerce's normal empty list.
 - N is one count query that runs only on the Orders screen. It must use the same
   statuses as the "Όλες" count, so clicking the link shows exactly N rows
-  (trash and drafts excluded). The plan must verify this equality.
+  (trash and drafts excluded). The plan must verify this equality. The count
+  query uses `meta_key` / `meta_value` (not `meta_query`) because the classic
+  order data store ignores a `meta_query`; the orders-table list filter uses
+  `meta_query`, which `OrdersTableQuery` AND-combines with existing filters.
 
 ### Styling and strings
 
