@@ -228,6 +228,23 @@ table.wp-list-table td.column-grvatin_doc {
     font-size: 16px;
 }
 
+/* Orders list on phones. Our cell sits before the primary column, so WordPress leaves it visible and prints the column
+   name (its data-colname) in front of it, which showed as a clipped "Π…" over the icon: hide that label. The column is
+   also made tight so the order number and the status pill keep their room. The selectors are deliberately long: they
+   outrank core's (0,4,3) label rule and WooCommerce's ".wp-list-table tbody td" / ".wp-list-table thead th" padding. */
+@media screen and (max-width: 782px) {
+    table.wp-list-table tr:not(.inline-edit-row):not(.no-items) td.column-grvatin_doc::before {
+        display: none;
+    }
+
+    table.wp-list-table tr th.column-grvatin_doc,
+    table.wp-list-table tr td.column-grvatin_doc {
+        width: 2em;
+        padding-left: 0;
+        padding-right: 0;
+    }
+}
+
 /* Loading State */
 .grvatin-loading-spinner {
     display: inline-block;
