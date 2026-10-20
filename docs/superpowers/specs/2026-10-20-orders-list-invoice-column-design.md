@@ -1,0 +1,118 @@
+# Invoice Marker and Filter on the Orders List
+
+Date: 2026-10-20
+Status: Design approved, not yet implemented
+Target release: 1.2.6
+
+## Problem
+
+A WordPress.org user reported that the plugin lacks an indicator on the Orders
+list: shops with large order volumes cannot tell at a glance which orders asked
+for a Τιμολόγιο, and cannot isolate them. Today the list shows nothing from the
+plugin except the eye-icon Quick Preview (1.2.4). The `.grvatin-invoice-column`
+rule in `assets/css/admin.css` is an unused leftover of an old version; no PHP
+prints it.
+
+## Decision
+
+The store owner was shown three mockups of the same list and chose **option C**:
+
+- A. A "Τιμολόγιο" badge next to the order name in the existing Order column.
+  (rejected: the cell is already busy, no way to isolate invoices)
+- B. A new "Παραστατικό" column with an icon on every row, Τιμολόγιο and
+  Απόδειξη alike. (rejected: most orders are receipts, so an icon on every row
+  becomes wallpaper and the column is wide)
+- C. A slim icon-only column that marks **only** Τιμολόγιο rows, plus a
+  **Τιμολόγια** filter link in the status row. (chosen)
+
+Change requested on option C: the filter link is **always shown**, also when the
+shop has no invoices yet. With none it reads "Τιμολόγια (0)". It is not hidden
+the way WooCommerce hides empty statuses.
+
+Interpretation: "sort the orders with τιμολόγιο" is served by the filter. A
+sortable column header was left out on purpose: ordering by a custom field is
+fragile in WooCommerce's orders table, and the filter covers the need.
+
+## Design
+
+New class `GRVATIN_Order_List` (`includes/class-order-list.php`), loaded and
+instantiated next to `GRVATIN_Order_Preview` and `GRVATIN_Order_Admin_Card`.
+WooCommerce has two list screens, so every piece is hooked twice:
+
+| Piece | Orders table (HPOS) | Classic (posts) screen |
+|---|---|---|
+| Add column | `woocommerce_shop_order_list_table_columns` | `manage_edit-shop_order_columns` |
+| Print cell | `woocommerce_shop_order_list_table_custom_column` (gets the order) | `manage_shop_order_posts_custom_column` (gets the post ID, load with `wc_get_order()`) |
+| Add filter link | `views_woocommerce_page_wc-orders` | `views_edit-shop_order` |
+| Apply filter | `woocommerce_order_list_table_prepare_items_query_args` | `pre_get_posts` (main query of that screen only) |
+
+Hook names were checked against the WooCommerce 11.1 source on the local test
+site; the classic-screen ones are standard WordPress hooks.
+
+### The column
+
+- Key `grvatin_doc`, inserted right after the checkbox column.
+- Header: icon only, with the screen-reader text "Παραστατικό".
+- Cell: a Dashicon in a small round accent badge, with `title` and
+  `aria-label` "Τιμολόγιο", only when `_billing_invoice_type` is `invoice`.
+  Receipts, and orders with no type (placed before the plugin existed), show an
+  empty cell.
+- Width about 40px through `.column-grvatin_doc`. WordPress hides extra columns
+  on phones and Screen Options can hide it; the filter link still works then.
+
+### The filter link
+
+- Appended last in the status row: "Τιμολόγια (N)", in the same markup as
+  WooCommerce's own links, with the `current` class and bold when active.
+- URL parameter `grvatin_doc=invoice`. Only the exact value `invoice` is
+  accepted; anything else is ignored. Read-only, so no nonce (same as
+  WooCommerce's own status filter).
+- Active filter adds the condition `_billing_invoice_type = invoice` to the
+  order query. The link carries no status, so it lists invoices of every status
+  that "Όλες" lists.
+- Always shown, including "Τιμολόγια (0)". Clicking it with zero invoices shows
+  WooCommerce's normal empty list.
+- N is one count query that runs only on the Orders screen. It must use the same
+  statuses as the "Όλες" count, so clicking the link shows exactly N rows
+  (trash and drafts excluded). The plan must verify this equality.
+
+### Styling and strings
+
+- A small rule set appended to `assets/css/admin.css`, scoped to
+  `.column-grvatin_doc` and `.grvatin-doc-icon`. `admin.css` already loads on
+  both Orders screens through `enqueue_admin_scripts()`; no new enqueue.
+- The unused `.grvatin-invoice-column` rules are removed from `admin.css`.
+- Strings follow the surrounding code (Greek source strings, text domain
+  `greek-vat-invoices-for-woocommerce`): Τιμολόγιο, Παραστατικό, Τιμολόγια.
+
+### Safety
+
+- Read-only: no writes, no new options, no schema change.
+- Fail-open: the column and link code run inside `try/catch (\Throwable)` where
+  a failure could otherwise break the list; on error the list renders exactly as
+  WooCommerce builds it, without our marker or link.
+- Meta is read from order objects the list already loaded, so no extra query per
+  row. The only added query is the one count.
+- All output escaped at the point of echo (`esc_html`, `esc_attr`, `esc_url`).
+
+## Testing plan (local XAMPP, WP 7.1, WooCommerce 11.1)
+
+Seed orders: Block-checkout invoice, Block-checkout receipt, Classic invoice, an
+order with no plugin data, one in trash. Then, in headless Chrome:
+
+- HPOS screen: icon on invoice rows only; link shows the right count; clicking
+  it lists exactly the invoice rows; "Όλες" unaffected; link marked current.
+- Zero invoices: "Τιμολόγια (0)" is shown, click gives the normal empty list.
+- Classic (posts) storage mode: the same checks.
+- Invalid `grvatin_doc` value is ignored (full list, no error).
+- Combined with search, pagination and a status link: no PHP notices.
+- Quick Preview (1.2.4) and the order card (1.2.5) unchanged.
+- Query count: no per-row queries added beyond the single count.
+- No PHP error-log lines, no JS console errors, `php -l` clean.
+
+## Out of scope
+
+- A sortable column header.
+- An "Αποδείξεις" (receipt) filter or receipt icons.
+- Bulk actions, export columns, or showing ΑΦΜ / company name in the list.
+- WordPress.org publishing: it happens only after the owner's explicit OK.
