@@ -5,7 +5,7 @@
  * Runs against the WordPress/WooCommerce site and the plugin copy deployed there (see
  * tests/deploy-to-xampp.ps1). Seeds tagged test orders, checks, and deletes them again.
  *
- *   C:\xampp\php\php.exe tests/check-order-list.php [all|columns|cell|filter|view]
+ *   C:\xampp\php\php.exe tests/check-order-list.php [all|columns|cell|filter|view|enqueue]
  */
 
 if (PHP_SAPI !== 'cli') {
@@ -18,8 +18,8 @@ $section  = isset($argv[1]) ? $argv[1] : 'all';
 $passes   = 0;
 $failures = 0;
 
-if (!in_array($section, array('all', 'columns', 'cell', 'filter', 'view'), true)) {
-    echo "unknown section: $section (use all|columns|cell|filter|view)\n";
+if (!in_array($section, array('all', 'columns', 'cell', 'filter', 'view', 'enqueue'), true)) {
+    echo "unknown section: $section (use all|columns|cell|filter|view|enqueue)\n";
     exit(2);
 }
 
@@ -290,6 +290,36 @@ if (wants('view')) {
         remove_filter('wc_order_statuses', $thrower);
     }
     check('fail-open: views unchanged when the count throws', $failed === $views_in);
+}
+
+// ---------------------------------------------------------------- enqueue
+if (wants('enqueue')) {
+    echo "enqueue\n";
+
+    require_once ABSPATH . 'wp-admin/includes/class-wp-screen.php';
+    require_once ABSPATH . 'wp-admin/includes/screen.php';
+
+    $plugin       = GRVATIN_Greek_VAT_Invoices::get_instance();
+    $saved_screen = isset($GLOBALS['current_screen']) ? $GLOBALS['current_screen'] : null;
+
+    // hook suffix, screen id, expected: is admin.css enqueued?
+    $cases = array(
+        array('woocommerce_page_wc-orders', 'woocommerce_page_wc-orders', true),  // orders table (HPOS)
+        array('edit.php', 'edit-shop_order', true),                               // classic orders list
+        array('edit.php', 'edit-post', false),                                    // a plain posts list
+        array('index.php', 'dashboard', false),                                   // dashboard
+    );
+
+    foreach ($cases as $case) {
+        list($hook, $screen_id, $expected) = $case;
+        wp_dequeue_style('wcgvi-admin');
+        $GLOBALS['current_screen'] = WP_Screen::get($screen_id);
+        $plugin->enqueue_admin_scripts($hook);
+        check("admin.css enqueued on $screen_id ($hook) = " . ($expected ? 'yes' : 'no'), wp_style_is('wcgvi-admin', 'enqueued') === $expected);
+    }
+
+    wp_dequeue_style('wcgvi-admin');
+    $GLOBALS['current_screen'] = $saved_screen;
 }
 
 if ($passes + $failures === 0) {

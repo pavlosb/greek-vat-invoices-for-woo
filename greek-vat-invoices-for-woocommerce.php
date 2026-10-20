@@ -182,6 +182,13 @@ class GRVATIN_Greek_VAT_Invoices {
                 'test_aade_text' => __('Δοκιμή AADE', 'greek-vat-invoices-for-woocommerce'),
                 'test_vies_text' => __('Δοκιμή VIES', 'greek-vat-invoices-for-woocommerce')
             ));
+        } elseif (function_exists('get_current_screen')) {
+            // Classic (posts) Orders list: no post is set yet at this point, so get_post_type() above is false there.
+            // Only the stylesheet is needed, for the invoice marker column.
+            $screen = get_current_screen();
+            if ($screen && $screen->id === 'edit-shop_order') {
+                wp_enqueue_style('wcgvi-admin', GRVATIN_PLUGIN_URL . 'assets/css/admin.css', array(), GRVATIN_VERSION);
+            }
         }
     }
     
