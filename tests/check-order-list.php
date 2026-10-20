@@ -245,6 +245,32 @@ if (wants('filter')) {
 
     $GLOBALS['wp_the_query'] = $saved_query;
     $GLOBALS['pagenow']      = $saved_page;
+
+    // The list's own search box and Filter button are GET forms with fixed hidden fields, so they would drop our
+    // parameter. While the filter is active the form carries a hidden copy: both screens print it through their
+    // "extra filters inside the form" action, which passes (order or post type, 'top').
+    $field_tag = 'name="grvatin_doc"';
+
+    foreach (array('woocommerce_order_list_table_restrict_manage_orders', 'restrict_manage_posts') as $field_hook) {
+        check("form field: $field_hook is wired to print_filter_field", has_action($field_hook, array($list, 'print_filter_field')) !== false);
+
+        $_GET['grvatin_doc'] = 'invoice';
+        $out = capture($field_hook, 'shop_order', 'top');
+        check("form field: $field_hook prints exactly one hidden grvatin_doc=invoice input while the filter is active", substr_count($out, $field_tag) === 1 && strpos($out, '<input type="hidden" name="grvatin_doc" value="invoice" />') !== false, $out);
+
+        $out = capture($field_hook, 'shop_subscription', 'top');
+        check("form field: $field_hook prints nothing for another order type", strpos($out, $field_tag) === false, $out);
+
+        unset($_GET['grvatin_doc']);
+        $out = capture($field_hook, 'shop_order', 'top');
+        check("form field: $field_hook prints nothing while the filter is off", strpos($out, $field_tag) === false, $out);
+
+        $_GET['grvatin_doc'] = 'bogus';
+        $out = capture($field_hook, 'shop_order', 'top');
+        check("form field: $field_hook prints nothing for an ignored value", strpos($out, $field_tag) === false, $out);
+    }
+
+    unset($_GET['grvatin_doc']);
 }
 
 // ---------------------------------------------------------------- view

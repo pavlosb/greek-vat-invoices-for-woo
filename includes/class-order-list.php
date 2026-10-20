@@ -34,12 +34,15 @@ class GRVATIN_Order_List {
         add_action('woocommerce_shop_order_list_table_custom_column', array($this, 'render_column'), 10, 2);
         add_filter('views_woocommerce_page_wc-orders', array($this, 'add_view'));
         add_filter('woocommerce_order_list_table_prepare_items_query_args', array($this, 'filter_query_args'));
+        // The list's search box and Filter button are GET forms that would drop our parameter: keep it in the form
+        add_action('woocommerce_order_list_table_restrict_manage_orders', array($this, 'print_filter_field'), 10, 2);
 
         // Classic (posts) orders screen. WooCommerce rebuilds this column list at priority 10, so run after it.
         add_filter('manage_shop_order_posts_columns', array($this, 'add_column'), 20);
         add_action('manage_shop_order_posts_custom_column', array($this, 'render_column_classic'), 10, 2);
         add_filter('views_edit-shop_order', array($this, 'add_view'));
         add_action('pre_get_posts', array($this, 'filter_classic_query'));
+        add_action('restrict_manage_posts', array($this, 'print_filter_field'), 10, 2);
     }
 
     /**
@@ -190,6 +193,21 @@ class GRVATIN_Order_List {
 
         // WooCommerce already sets a meta_query here for the customer and created-via filters, so merge
         $query->set('meta_query', $this->with_invoice_clause($query->get('meta_query'))); // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query
+    }
+
+    /**
+     * Keep the filter through the list's own search box and Filter button. Both submit a GET form that carries only
+     * fixed hidden fields (page / status / post_type ...), so the browser would drop ?grvatin_doc=invoice and the list
+     * would show every order again. While the filter is active, print it into that form as a hidden field.
+     * Hooked to the orders table (woocommerce_order_list_table_restrict_manage_orders) and to the classic
+     * screen (restrict_manage_posts); both pass the order / post type and 'top'.
+     */
+    public function print_filter_field($type = '', $which = '') {
+        if ($type !== 'shop_order' || !$this->is_filter_active()) {
+            return;
+        }
+
+        echo '<input type="hidden" name="' . esc_attr(self::FILTER_ARG) . '" value="' . esc_attr(self::FILTER_VALUE) . '" />';
     }
 
     /**

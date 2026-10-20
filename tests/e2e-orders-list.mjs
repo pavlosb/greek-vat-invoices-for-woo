@@ -239,14 +239,53 @@ try {
     check('order edit screen still shows the invoice card', await js(`!!document.querySelector('.grvatin-order-card')`));
   }
 
-  // --- the filter combined with a search and with a status must not break anything
-  console.log('filter combined with search and with a status');
-  await go(`${all.linkHref}&s=GRVATIN`);
+  // --- the filter must survive the list's own search box and Filter button
+  // Both are GET forms that carry only fixed hidden fields, so the browser drops grvatin_doc from the request
+  // unless the form carries it too. These steps use the real controls, as a user does: the value is typed
+  // into the real input and the real button is pressed, so the browser itself builds the request from the form.
+  const press = async (fieldSelector, buttonSelector, value) => {
+    const found = await js(`!!document.querySelector(${JSON.stringify(fieldSelector)}) && !!document.querySelector(${JSON.stringify(buttonSelector)})`);
+    if (!found) return false;
+    await afterLoad(() => js(`(() => {
+      const field = document.querySelector(${JSON.stringify(fieldSelector)});
+      if (${JSON.stringify(value)} !== null) field.value = ${JSON.stringify(value)};
+      document.querySelector(${JSON.stringify(buttonSelector)}).click();
+      return true;
+    })()`));
+    return true;
+  };
+
+  console.log('filter combined with the list search box');
+  await go(all.linkHref);
+  const searched = await press('p.search-box input[name="s"]', 'p.search-box #search-submit', 'GRVATIN');
+  check('the list search box and its button were found', searched);
   const withSearch = await js(FACTS);
-  check('filter + search: no PHP problems, at least one row, never more rows than the filter alone', !withSearch.phpProblems && withSearch.rows >= 1 && withSearch.rows <= inv.rows, `${withSearch.rows} vs ${inv.rows}`);
+  check('filter + search box: the URL still carries grvatin_doc=invoice (and the search)', withSearch.url.includes('grvatin_doc=invoice') && withSearch.url.includes('s=GRVATIN'), withSearch.url);
+  check('filter + search box: no PHP problems, at least one row, never more rows than the filter alone', !withSearch.phpProblems && withSearch.rows >= 1 && withSearch.rows <= inv.rows, `${withSearch.rows} vs ${inv.rows}`);
+  check('filter + search box: every shown row carries the icon', withSearch.rows >= 1 && withSearch.icons === withSearch.rows, `${withSearch.icons}/${withSearch.rows}`);
+  check('filter + search box: the seeded invoice_processing order is listed', fixtureRows(withSearch, 'invoice_processing').length > 0, fixtureNames(withSearch));
+  check('filter + search box: the seeded invoice_on_hold order is listed', fixtureRows(withSearch, 'invoice_on_hold').length > 0, fixtureNames(withSearch));
+  check('filter + search box: the seeded receipt order is left out', fixtureRows(withSearch, 'receipt').length === 0, fixtureNames(withSearch));
+  check('filter + search box: the seeded untyped order is left out', fixtureRows(withSearch, 'untyped').length === 0, fixtureNames(withSearch));
+  await shot('orders-list-invoices-search.png');
+
+  console.log('filter combined with the list Filter button');
+  await go(all.linkHref);
+  const filtered = await press('input[name="filter_action"]', 'input[name="filter_action"]', null);
+  check('the list Filter button was found', filtered);
+  const withButton = await js(FACTS);
+  check('filter + Filter button: the URL still carries grvatin_doc=invoice', withButton.url.includes('grvatin_doc=invoice') && withButton.url.includes('filter_action='), withButton.url);
+  check('filter + Filter button: no PHP problems, at least one row, every shown row carries the icon', !withButton.phpProblems && withButton.rows >= 1 && withButton.icons === withButton.rows, `${withButton.icons}/${withButton.rows}`);
+  check('filter + Filter button: the seeded invoice_processing order is listed', fixtureRows(withButton, 'invoice_processing').length > 0, fixtureNames(withButton));
+  check('filter + Filter button: the seeded receipt order is left out', fixtureRows(withButton, 'receipt').length === 0, fixtureNames(withButton));
+
+  // --- the filter combined with a status must not break anything
+  console.log('filter combined with a status');
   await go(`${all.linkHref}&status=wc-processing`);
   const withStatus = await js(FACTS);
   check('filter + status: no PHP problems, at least one row, every row is still an invoice', !withStatus.phpProblems && withStatus.rows >= 1 && withStatus.icons === withStatus.rows, `${withStatus.icons}/${withStatus.rows}`);
+  check('filter + status: the seeded Processing invoice is listed', fixtureRows(withStatus, 'invoice_processing').length > 0, fixtureNames(withStatus));
+  check('filter + status: the seeded On hold invoice is left out (the status was honoured)', fixtureRows(withStatus, 'invoice_on_hold').length === 0, fixtureNames(withStatus));
 
   // --- an unknown value is ignored
   console.log('unknown filter value');
