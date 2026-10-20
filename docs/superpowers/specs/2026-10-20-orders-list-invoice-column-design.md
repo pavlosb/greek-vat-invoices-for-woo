@@ -59,8 +59,15 @@ site; the classic-screen ones are standard WordPress hooks.
   (placed before the plugin existed), show an empty cell.
 - A narrow width is requested through `.column-grvatin_doc`, but the real width
   is the proportional share of WooCommerce's fixed table layout (about 96px, see
-  Known limits). WordPress hides extra columns on phones and Screen Options can
-  hide it; the filter link still works then.
+  Known limits). Screen Options can hide the column; the filter link still works
+  then.
+- On phones (viewport 782px and below) WordPress hides only the cells AFTER the
+  primary column. Our column sits before it, so the marker stays visible in the
+  collapsed row. WordPress also prints each visible cell's column name as a
+  `::before` label, which showed as a clipped "Π…" over the icon and squeezed the
+  Status pill to "Proce…". A `max-width: 782px` rule hides that label and makes
+  the column tight (found by the mobile browser check; verified at 375px on both
+  screens).
 
 ### The filter link
 
@@ -137,25 +144,39 @@ order with no plugin data, one in trash. Then, in headless Chrome:
 Results on the local XAMPP site (WP 7.1, WooCommerce 11.1, HPOS, real orders
 present, only tagged fixtures created and removed again):
 
-- CLI integration checks (`tests/check-order-list.php`): 71 passed, 0 failed.
+- CLI integration checks (`tests/check-order-list.php`): 71 passed, 0 failed on
+  the real shop (HPOS) AND on a clean-room install in classic storage (the
+  checks look up the listed rows through the path the active storage really
+  uses).
 - Headless Chrome on the real HPOS Orders screen (`tests/e2e-orders-list.mjs`):
-  all checks passed, with screenshots reviewed by eye. The checks are anchored
-  to the seeded fixture rows by name and never act on a real order.
+  all 46 checks passed, with screenshots reviewed by eye. The same script on the
+  classic posts screen of a clean-room WordPress 7.1 + WooCommerce 11.1 install
+  (only WooCommerce and this plugin, HPOS off, orders in `wp_posts`): 46 passed.
+  The checks are anchored to the seeded fixture rows by name and never act on a
+  real order.
+- Mobile mode (`GRVATIN_MOBILE=1`, 375px viewport): 29 checks passed on HPOS and
+  26 on classic (the classic screen has no row toggle, so those steps are
+  skipped there).
 - Plugin Check's `plugin-review.xml` ruleset: no findings on the new class.
-- The real browser caught three defects the CLI checks could not: the new column
+- The real browser caught defects the CLI checks could not: the new column
   became the primary column; WooCommerce's CSS overrode the column width; the
-  icon circle was invisible on striped rows. It also corrected two wrong
+  icon circle was invisible on striped rows; on phones a clipped "Π…" label
+  overlapped the icon and squeezed the Status pill. It also corrected two wrong
   assumptions of this spec: `admin.css` did not load on the classic screen, and
   `sanitize_text_field` made the filter accept `invoice%20` (now an exact
   comparison).
 
 ## Known limits
 
-- The classic (posts) Orders screen was verified only by CLI hook-level checks
-  (the local site's data sync is off, so its storage cannot be switched without
-  hiding the real orders). Its rendering, column order and CSS are unproven live.
-- Phone and narrow-desktop widths were not looked at; the column renders about
-  96px wide (a proportional share of the fixed table layout, not a hard width).
+- The classic (posts) screen was verified live only in the clean-room install,
+  not on the owner's real shop with its other plugins: WooCommerce refuses to
+  switch the authoritative order table while orders are out of sync (the shop's
+  data sync is off), and the switch was deliberately not forced. On the owner's
+  real HPOS screen the other plugins (for example the barcode column) were
+  present during every browser run.
+- Narrow-desktop widths (783px to about 1100px) were not looked at; phone width
+  (375px) was. The column renders about 96px wide on desktop (a proportional
+  share of the fixed table layout, not a hard width).
 - "Τιμολόγια (0)" is verified at unit level only: the site's real invoice orders
   make a live zero impossible without touching real data. The text is checked
   through `get_view_link()` only; a code guard in `add_view()` is excluded by
