@@ -118,7 +118,8 @@ class GRVATIN_Order_List {
             return false;
         }
 
-        return sanitize_text_field(wp_unslash($_GET[self::FILTER_ARG])) === self::FILTER_VALUE;
+        // Only compared with a constant, never echoed or stored, so no sanitizing: the exact value is required
+        return wp_unslash($_GET[self::FILTER_ARG]) === self::FILTER_VALUE;
     }
 
     /**

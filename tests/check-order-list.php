@@ -158,7 +158,7 @@ if (wants('filter')) {
     unset($_GET['grvatin_doc']);
     check('no parameter: query args untouched', apply_filters($hook, $base) === $base);
 
-    foreach (array('receipt', '', 'INVOICE', array('invoice')) as $bad_value) {
+    foreach (array('receipt', '', 'INVOICE', array('invoice'), 'invoice ', ' invoice', "invoice\n", 'invoice<b></b>') as $bad_value) {
         $_GET['grvatin_doc'] = $bad_value;
         check('ignored value ' . show($bad_value), apply_filters($hook, $base) === $base);
     }
