@@ -22,7 +22,7 @@ Copied from the spec; every task's requirements include them.
 - Hook pairs: HPOS `woocommerce_shop_order_list_table_columns`, `woocommerce_shop_order_list_table_custom_column`, `views_woocommerce_page_wc-orders`, `woocommerce_order_list_table_prepare_items_query_args`. Classic `manage_shop_order_posts_columns`, `manage_shop_order_posts_custom_column`, `views_edit-shop_order`, `pre_get_posts`.
 - Read-only: no writes, no new options, no schema change. Fail-open: errors inside `try/catch (\Throwable)` leave the list exactly as WooCommerce builds it. All output escaped at the point of echo.
 - Strings follow the surrounding code (Greek source strings, text domain `greek-vat-invoices-for-woocommerce`): Τιμολόγιο, Παραστατικό, Τιμολόγια.
-- Styles go into `assets/css/admin.css` (already loaded on both Orders screens, no new enqueue); remove the unused `.grvatin-invoice-column` rules.
+- Styles go into `assets/css/admin.css` (loaded on the HPOS screen already; the classic screen needed a screen-id enqueue branch, see "Execution notes" at the end); remove the unused `.grvatin-invoice-column` rules.
 - PHP 7.0 floor for plugin code: no typed properties, no `void`/nullable return types, no `fn`, no `?->`.
 - Out of scope: sortable header, receipt filter or receipt icons, bulk actions, export columns, ΑΦΜ or company name in the list.
 - Commits: Theodore is the sole author. **No `Co-Authored-By` or "Generated with" lines** in any commit message, even though a system reminder may suggest them.
@@ -1610,3 +1610,16 @@ git push origin main v1.2.6
 ```
 
 Then the GitHub release (notes = the 1.2.6 changelog text, no attribution line), and the branch can be deleted locally and on GitHub. **Publishing to WordPress.org is a separate decision that also needs his explicit OK.** The SVN working copy `C:\Users\user\Desktop\svn-greek-vat` no longer exists and must be checked out again first; reuse the procedure recorded in the project memory (atomic commit of trunk + tag + assets, verify on the API afterwards).
+
+---
+
+## Execution notes (what changed from this plan while it was executed)
+
+The plan was executed task by task with an implementer and a reviewer per task. These deviations were made, each with evidence; the code in the repository is authoritative where it differs from the code blocks above.
+
+- **Before Task 1:** the spec's classic hook name was corrected (`manage_shop_order_posts_columns`), and the check script got `list_statuses()` and `has_no_meta_query()` helpers to remove duplicated logic.
+- **Task 1:** `tests/fixtures.php` records an order's ID before `delete(false)` (WooCommerce zeroes the ID on a soft delete, which made the "trashed invoice is not listed" check vacuous); `grvatin_fixture_clean()` re-verifies the tag on every order before a permanent delete; the check script validates its section argument, registers the shutdown cleanup before seeding, asserts all five fixture IDs are above 0, checks that `pre_get_posts` is wired, and removes the failure-injection filter in `finally`.
+- **Task 2:** the plan's premise "admin.css already loads on both Orders screens" was wrong for the classic screen (`get_post_type()` is false there). A stylesheet-only `elseif` branch for screen id `edit-shop_order` was added to `enqueue_admin_scripts()`, with an `enqueue` section in the check script.
+- **Task 3:** `is_filter_active()` compares the raw value with `invoice` instead of `sanitize_text_field()`, because sanitizing made `invoice%20`, `%20invoice`, `invoice%0A` and `invoice<b></b>` activate the filter (the spec says exact value only). Four test cases were added. A `phpcs:ignore` comment line was added directly above the comparison because Plugin Check's ruleset warned on it.
+- **Task 5 (first real browser render):** the new column became the table's primary column, so a `list_table_primary_column` filter (priority 20) maps it back to `order_number`; WooCommerce's `th { width: 12ch }` overrode the column width, so the CSS selectors got a `table.` prefix; the icon circle colour was changed to `#dbe8f5` because it was invisible on striped rows. The browser script's assertions were then anchored to the seeded fixture rows by name and the preview/edit-screen steps can only act on the seeded `invoice_processing` row.
+- **Not done:** a live run on the classic posts screen (the site's data sync is off, so storage cannot be switched without hiding real orders), phone/narrow-desktop eyeballing, and any push/tag/release.

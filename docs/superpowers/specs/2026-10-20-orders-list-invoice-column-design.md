@@ -1,7 +1,7 @@
 # Invoice Marker and Filter on the Orders List
 
 Date: 2026-10-20
-Status: Design approved, not yet implemented
+Status: Implemented and tested locally (not yet released)
 Target release: 1.2.6
 
 ## Problem
@@ -82,8 +82,19 @@ site; the classic-screen ones are standard WordPress hooks.
 ### Styling and strings
 
 - A small rule set appended to `assets/css/admin.css`, scoped to
-  `.column-grvatin_doc` and `.grvatin-doc-icon`. `admin.css` already loads on
-  both Orders screens through `enqueue_admin_scripts()`; no new enqueue.
+  `table.wp-list-table .column-grvatin_doc` and `.grvatin-doc-icon`. (The
+  `table.` prefix is needed: WooCommerce's own `th { width: 12ch }` rule would
+  otherwise win on specificity.)
+- `admin.css` already loads on the orders-table (HPOS) screen through
+  `enqueue_admin_scripts()` (its hook name contains `woocommerce`). It did NOT
+  load on the classic posts screen: there the hook is `edit.php` and
+  `get_post_type()` is false (no global post is set yet). `enqueue_admin_scripts()`
+  therefore gets a stylesheet-only `elseif` branch for screen id
+  `edit-shop_order`; nothing else changes for other screens.
+- The new column must not become WordPress's default primary column (the one
+  that stays visible on phones): a `list_table_primary_column` filter at
+  priority 20 maps our column back to `order_number`. Found by the first real
+  browser render.
 - The unused `.grvatin-invoice-column` rules are removed from `admin.css`.
 - Strings follow the surrounding code (Greek source strings, text domain
   `greek-vat-invoices-for-woocommerce`): Τιμολόγιο, Παραστατικό, Τιμολόγια.
@@ -112,6 +123,33 @@ order with no plugin data, one in trash. Then, in headless Chrome:
 - Quick Preview (1.2.4) and the order card (1.2.5) unchanged.
 - Query count: no per-row queries added beyond the single count.
 - No PHP error-log lines, no JS console errors, `php -l` clean.
+
+## What testing found (2026-10-20)
+
+Results on the local XAMPP site (WP 7.1, WooCommerce 11.1, HPOS, real orders
+present, only tagged fixtures created and removed again):
+
+- CLI integration checks (`tests/check-order-list.php`): 61 passed, 0 failed.
+- Headless Chrome on the real HPOS Orders screen (`tests/e2e-orders-list.mjs`):
+  all checks passed, with screenshots reviewed by eye. The checks are anchored
+  to the seeded fixture rows by name and never act on a real order.
+- Plugin Check's `plugin-review.xml` ruleset: no findings on the new class.
+- The real browser caught three defects the CLI checks could not: the new column
+  became the primary column; WooCommerce's CSS overrode the column width; the
+  icon circle was invisible on striped rows. It also corrected two wrong
+  assumptions of this spec: `admin.css` did not load on the classic screen, and
+  `sanitize_text_field` made the filter accept `invoice%20` (now an exact
+  comparison).
+
+## Known limits
+
+- The classic (posts) Orders screen was verified only by CLI hook-level checks
+  (the local site's data sync is off, so its storage cannot be switched without
+  hiding the real orders). Its rendering, column order and CSS are unproven live.
+- Phone and narrow-desktop widths were not looked at; the column renders about
+  96px wide (a proportional share of the fixed table layout, not a hard width).
+- "Τιμολόγια (0)" is verified at unit level only: the site's real invoice orders
+  make a live zero impossible without touching real data.
 
 ## Out of scope
 
