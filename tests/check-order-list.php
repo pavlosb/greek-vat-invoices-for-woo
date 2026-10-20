@@ -18,6 +18,11 @@ $section  = isset($argv[1]) ? $argv[1] : 'all';
 $passes   = 0;
 $failures = 0;
 
+if (!in_array($section, array('all', 'columns', 'cell', 'filter', 'view'), true)) {
+    echo "unknown section: $section (use all|columns|cell|filter|view)\n";
+    exit(2);
+}
+
 function check($name, $ok, $detail = '') {
     global $passes, $failures;
     if ($ok) {
@@ -70,10 +75,11 @@ wp_set_current_user((int) $admins[0]);
 $list = GRVATIN_Order_List::get_instance();
 
 grvatin_fixture_clean(); // leftovers of an aborted run
+register_shutdown_function('grvatin_fixture_clean'); // registered before seeding, so a failed seed still cleans up
 $before = wants('view') ? $list->count_invoices() : 0;
 $ids    = grvatin_fixture_seed();
-register_shutdown_function('grvatin_fixture_clean');
 echo '  seeded: ' . show($ids) . "\n";
+check('all five fixtures were created (every ID > 0)', count($ids) === 5 && min($ids) > 0, show($ids));
 
 // ---------------------------------------------------------------- columns
 if (wants('columns')) {
@@ -183,6 +189,8 @@ if (wants('filter')) {
     check('an existing meta_query is kept and AND-combined', isset($merged['meta_query']['relation']) && $merged['meta_query']['relation'] === 'AND' && $merged['meta_query'][0] === $existing, show($merged['meta_query']));
 
     // Classic (posts) screen: the pre_get_posts callback
+    check('classic: pre_get_posts is wired to filter_classic_query', has_action('pre_get_posts', array($list, 'filter_classic_query')) !== false);
+
     $saved_query = isset($GLOBALS['wp_the_query']) ? $GLOBALS['wp_the_query'] : null;
     $saved_page  = isset($GLOBALS['pagenow']) ? $GLOBALS['pagenow'] : null;
 
@@ -276,9 +284,17 @@ if (wants('view')) {
         throw new RuntimeException('boom');
     };
     add_filter('wc_order_statuses', $thrower);
-    $failed = $list->add_view($views_in);
-    remove_filter('wc_order_statuses', $thrower);
+    try {
+        $failed = $list->add_view($views_in);
+    } finally {
+        remove_filter('wc_order_statuses', $thrower);
+    }
     check('fail-open: views unchanged when the count throws', $failed === $views_in);
+}
+
+if ($passes + $failures === 0) {
+    echo "\nFAIL no checks ran\n";
+    exit(1);
 }
 
 echo "\n$passes passed, $failures failed\n";

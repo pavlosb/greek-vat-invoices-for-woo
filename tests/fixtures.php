@@ -75,7 +75,7 @@ function grvatin_fixture_seed() {
 }
 
 /**
- * Permanently delete every tagged test order (trash included). Returns how many.
+ * Permanently delete every tagged test order (trash included). Returns how many were actually deleted.
  */
 function grvatin_fixture_clean() {
     $ids = wc_get_orders(array(
@@ -87,14 +87,16 @@ function grvatin_fixture_clean() {
         'meta_value' => '1',
     ));
 
+    $deleted = 0;
     foreach ($ids as $id) {
         $order = wc_get_order($id);
-        if ($order) {
-            $order->delete(true);
+        // Per-order re-check: a storage mode that ignores the meta query must never delete real orders.
+        if ($order && $order->get_meta(GRVATIN_TEST_TAG) === '1' && $order->delete(true)) {
+            $deleted++;
         }
     }
 
-    return count($ids);
+    return $deleted;
 }
 
 function grvatin_fixture_admin_delete() {
