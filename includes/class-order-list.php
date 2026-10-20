@@ -28,6 +28,7 @@ class GRVATIN_Order_List {
     private function __construct() {
         // Orders table (HPOS)
         add_filter('woocommerce_shop_order_list_table_columns', array($this, 'add_column'), 20);
+        add_filter('list_table_primary_column', array($this, 'keep_order_number_primary'), 20, 2);
         add_action('woocommerce_shop_order_list_table_custom_column', array($this, 'render_column'), 10, 2);
         add_filter('views_woocommerce_page_wc-orders', array($this, 'add_view'));
         add_filter('woocommerce_order_list_table_prepare_items_query_args', array($this, 'filter_query_args'));
@@ -69,6 +70,15 @@ class GRVATIN_Order_List {
         }
 
         return $result;
+    }
+
+    /**
+     * The orders table (HPOS) sets no primary column of its own, so WordPress falls back to the first column
+     * after the checkbox, which is now ours. Give that role back to the order number: the primary column is
+     * the one that stays visible on narrow screens, and it is rendered as a row header with the row actions.
+     */
+    public function keep_order_number_primary($column, $screen_id = '') {
+        return $column === self::COLUMN_KEY ? 'order_number' : $column;
     }
 
     /**

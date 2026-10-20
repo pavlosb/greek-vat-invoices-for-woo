@@ -99,6 +99,10 @@ if (wants('columns')) {
 
     check('non-array input passes through', $list->add_column('x') === 'x');
 
+    // WordPress takes the first non-checkbox column as the primary one; that must stay the order number
+    check('primary column: ours is never the primary, the order number is', apply_filters('list_table_primary_column', 'grvatin_doc', 'woocommerce_page_wc-orders') === 'order_number');
+    check('primary column: another default passes through', apply_filters('list_table_primary_column', 'order_number', 'woocommerce_page_wc-orders') === 'order_number' && apply_filters('list_table_primary_column', 'name', 'plugins') === 'name');
+
     $no_cb = $list->add_column(array('order_number' => 'Order'));
     check('without a cb column ours is placed first', array_keys($no_cb) === array('grvatin_doc', 'order_number'), show(array_keys($no_cb)));
 }

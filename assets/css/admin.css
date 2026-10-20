@@ -190,10 +190,10 @@
     margin-bottom: 0;
 }
 
-/* Orders list: invoice marker column */
-.wp-list-table th.column-grvatin_doc,
-.wp-list-table td.column-grvatin_doc {
-    width: 3.4em;
+/* Orders list: invoice marker column. The "table." prefix outranks WooCommerce's own "th { width: 12ch }" rule for the Orders screens. */
+table.wp-list-table th.column-grvatin_doc,
+table.wp-list-table td.column-grvatin_doc {
+    width: 2.6em;
     text-align: center;
 }
 
@@ -218,7 +218,7 @@
     width: 26px;
     height: 26px;
     border-radius: 50%;
-    background: #f0f6fc;
+    background: #dbe8f5;
     color: #2271b1;
 }
 
