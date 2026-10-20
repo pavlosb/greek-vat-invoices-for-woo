@@ -45,9 +45,22 @@ const check = (name, ok, detail = '') => {
   console.log(`  ${ok ? 'ok  ' : 'FAIL'} ${name}${!ok && detail ? ' -- ' + detail : ''}`);
 };
 
+// The seeded fixture rows of one kind (invoice_processing, receipt, ...) found in a page's FACTS
+const fixtureRows = (facts, kind) => facts.fixtures.filter((f) => f.name.includes(`GRVATIN TEST ${kind}`));
+const fixtureNames = (facts) => JSON.stringify(facts.fixtures.map((f) => f.name));
+
+// The order rows of the list table (HPOS rows are order-N, the classic screen's are post-N)
+const ROWS = `[...document.querySelectorAll('table.wp-list-table tbody tr[id^="order-"], table.wp-list-table tbody tr[id^="post-"]')]`;
+
+// The seeded invoice order the Quick Preview and the edit screen steps may act on. Never any other row:
+// the site also holds real orders, and the only thing that identifies a fixture is its billing last name.
+const SEEDED = 'GRVATIN TEST invoice_processing';
+const SEEDED_ROW = `(() => ${ROWS}.find((tr) => tr.textContent.replace(/\\s+/g, ' ').includes(${JSON.stringify(SEEDED)}) &&
+  tr.querySelector('td.column-grvatin_doc .grvatin-doc-icon')))()`;
+
 // Collected from the page: everything the checks need, as plain data
 const FACTS = `(() => {
-  const rows = [...document.querySelectorAll('table.wp-list-table tbody tr[id^="order-"], table.wp-list-table tbody tr[id^="post-"]')];
+  const rows = ${ROWS};
   const ours = (tr) => tr.querySelector('td.column-grvatin_doc');
   const link = document.querySelector('ul.subsubsub li.grvatin_invoices a');
   const squash = (s) => s.replace(/\\s+/g, ' ').trim();
@@ -56,6 +69,12 @@ const FACTS = `(() => {
     rows: rows.length,
     cells: rows.filter(ours).length,
     icons: rows.filter((tr) => ours(tr) && ours(tr).querySelector('.grvatin-doc-icon')).length,
+    // every seeded fixture order in the list, so the checks can name the exact rows they are about
+    fixtures: rows.filter((tr) => squash(tr.textContent).includes('GRVATIN TEST')).map((tr) => {
+      // match on the class only: the primary column can be rendered as a th (scope=row) instead of a td
+      const number = tr.querySelector('.column-order_number');
+      return { name: number ? squash(number.textContent) : '', icon: !!(ours(tr) && ours(tr).querySelector('.grvatin-doc-icon')) };
+    }),
     head: !!document.querySelector('table.wp-list-table thead th#grvatin_doc'),
     headOrder: [...document.querySelectorAll('table.wp-list-table thead tr > *')].slice(0, 3).map((el) => el.id || ''),
     primary: [...document.querySelectorAll('table.wp-list-table thead .column-primary')].map((el) => el.id),
@@ -152,7 +171,15 @@ try {
   check('column sits right after the checkbox', all.headOrder[0] === 'cb' && all.headOrder[1] === 'grvatin_doc', JSON.stringify(all.headOrder));
   check('the order number stays the primary column (ours is not)', all.primary.length === 1 && all.primary[0] === 'order_number', JSON.stringify(all.primary));
   check('every row has the marker cell', all.rows > 0 && all.cells === all.rows, `${all.cells}/${all.rows}`);
-  check('the invoice rows show the icon, the others do not', all.icons >= 2 && all.icons < all.rows, `${all.icons}/${all.rows}`);
+  // Anchored to the seeded orders: the real invoice orders on the site must never satisfy these
+  for (const kind of ['invoice_processing', 'invoice_on_hold']) {
+    const found = fixtureRows(all, kind);
+    check(`seeded ${kind} row is listed and shows the icon`, found.length > 0 && found.every((f) => f.icon), fixtureNames(all));
+  }
+  for (const kind of ['receipt', 'untyped']) {
+    const found = fixtureRows(all, kind);
+    check(`seeded ${kind} row is listed and shows no icon`, found.length > 0 && found.every((f) => !f.icon), fixtureNames(all));
+  }
   const m = (all.linkText || '').match(/^Τιμολόγια \((\d[\d.,]*)\)$/);
   check('filter link reads "Τιμολόγια (N)"', !!m, String(all.linkText));
   check('filter link is the last status link', all.linkIsLast);
@@ -163,10 +190,26 @@ try {
   const n = m ? parseInt(m[1].replace(/[.,]/g, ''), 10) : -1;
 
   // --- the Quick Preview must be unaffected
+  // Only the seeded invoice row is ever acted on, never another row with an icon (those are real orders).
   console.log('quick preview (1.2.4) still works');
-  await js(`document.querySelector('.grvatin-doc-icon').closest('tr').querySelector('a.order-preview').click();true`);
-  check('preview modal still shows the invoice block', await waitFor(`!!document.querySelector('.wc-backbone-modal .grvatin-preview-invoice')`));
-  await shot('orders-list-preview.png');
+  const seeded = await js(`(() => {
+    const tr = ${SEEDED_ROW};
+    if (!tr) return null;
+    const view = tr.querySelector('a.order-view, a.row-title');
+    return { editUrl: view ? view.href : null };
+  })()`);
+  check('seeded invoice row found for the preview / edit-screen steps (did seeding fail?)', !!seeded);
+  if (seeded) {
+    const clicked = await js(`(() => {
+      const preview = ${SEEDED_ROW}.querySelector('a.order-preview');
+      if (preview) preview.click();
+      return !!preview;
+    })()`);
+    check('preview modal still shows the invoice block', clicked && await waitFor(`!!document.querySelector('.wc-backbone-modal .grvatin-preview-invoice')`), clicked ? '' : 'the seeded row has no preview button');
+    await shot('orders-list-preview.png');
+  } else {
+    console.log('  skip  quick preview (no seeded invoice row, no other row is touched)');
+  }
 
   // --- the filter
   console.log('orders list, filter active');
@@ -174,25 +217,36 @@ try {
   const inv = await js(FACTS);
   check('URL carries grvatin_doc=invoice', inv.url.includes('grvatin_doc=invoice'), inv.url);
   if (n >= 0 && n <= 20) check('rows shown equal the N in the link', inv.rows === n, `${inv.rows} vs ${n}`);
+  else console.log(n > 20 ? '  skip  rows equal N (N > 20, list is paginated)' : '  skip  rows equal N (the count in the link could not be read)');
   check('every shown row carries the icon', inv.rows > 0 && inv.icons === inv.rows, `${inv.icons}/${inv.rows}`);
+  check('the filter lists the seeded invoice_processing order', fixtureRows(inv, 'invoice_processing').length > 0, fixtureNames(inv));
+  check('the filter lists the seeded invoice_on_hold order', fixtureRows(inv, 'invoice_on_hold').length > 0, fixtureNames(inv));
+  check('the filter leaves out the seeded receipt order', fixtureRows(inv, 'receipt').length === 0, fixtureNames(inv));
+  check('the filter leaves out the seeded untyped order', fixtureRows(inv, 'untyped').length === 0, fixtureNames(inv));
   check('only the Τιμολόγια link is current', inv.current.length === 1 && inv.current[0].startsWith('Τιμολόγια'), JSON.stringify(inv.current));
   check('no PHP problems printed in the page', !inv.phpProblems);
   await shot('orders-list-invoices.png');
 
   // --- the order edit screen (1.2.5 invoice card) must be unaffected
+  // Opened only through the seeded invoice row's own link (read above), never through another row.
   console.log('order edit screen (1.2.5 card) still works');
-  const editUrl = await js(`document.querySelector('tr .grvatin-doc-icon').closest('tr').querySelector('a.order-view, a.row-title').href`);
-  await go(editUrl);
-  check('order edit screen still shows the invoice card', await js(`!!document.querySelector('.grvatin-order-card')`));
+  if (!seeded) {
+    console.log('  skip  order edit screen (no seeded invoice row, no other row is touched)');
+  } else if (!seeded.editUrl) {
+    check('seeded invoice row links to its order edit screen', false);
+  } else {
+    await go(seeded.editUrl);
+    check('order edit screen still shows the invoice card', await js(`!!document.querySelector('.grvatin-order-card')`));
+  }
 
   // --- the filter combined with a search and with a status must not break anything
   console.log('filter combined with search and with a status');
   await go(`${all.linkHref}&s=GRVATIN`);
   const withSearch = await js(FACTS);
-  check('filter + search: no PHP problems, never more rows than the filter alone', !withSearch.phpProblems && withSearch.rows <= inv.rows, `${withSearch.rows} vs ${inv.rows}`);
+  check('filter + search: no PHP problems, at least one row, never more rows than the filter alone', !withSearch.phpProblems && withSearch.rows >= 1 && withSearch.rows <= inv.rows, `${withSearch.rows} vs ${inv.rows}`);
   await go(`${all.linkHref}&status=wc-processing`);
   const withStatus = await js(FACTS);
-  check('filter + status: no PHP problems, every row is still an invoice', !withStatus.phpProblems && withStatus.icons === withStatus.rows, `${withStatus.icons}/${withStatus.rows}`);
+  check('filter + status: no PHP problems, at least one row, every row is still an invoice', !withStatus.phpProblems && withStatus.rows >= 1 && withStatus.icons === withStatus.rows, `${withStatus.icons}/${withStatus.rows}`);
 
   // --- an unknown value is ignored
   console.log('unknown filter value');

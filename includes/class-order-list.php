@@ -28,6 +28,8 @@ class GRVATIN_Order_List {
     private function __construct() {
         // Orders table (HPOS)
         add_filter('woocommerce_shop_order_list_table_columns', array($this, 'add_column'), 20);
+        // Applies to both Orders screens: on the orders table our column would otherwise become WordPress's default primary column
+        // (the one that stays visible on phones). WooCommerce already forces order_number on the classic screen; priority 20 keeps ours behind it.
         add_filter('list_table_primary_column', array($this, 'keep_order_number_primary'), 20, 2);
         add_action('woocommerce_shop_order_list_table_custom_column', array($this, 'render_column'), 10, 2);
         add_filter('views_woocommerce_page_wc-orders', array($this, 'add_view'));
