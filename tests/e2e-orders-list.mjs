@@ -281,7 +281,9 @@ try {
 
   // --- the filter combined with a status must not break anything
   console.log('filter combined with a status');
-  await go(`${all.linkHref}&status=wc-processing`);
+  // The status argument differs per screen: the orders table (HPOS) reads status=, the classic posts screen (edit.php) post_status=
+  const classicScreen = new URL(all.url).pathname.endsWith('/edit.php');
+  await go(`${all.linkHref}&${classicScreen ? 'post_status' : 'status'}=wc-processing`);
   const withStatus = await js(FACTS);
   check('filter + status: no PHP problems, at least one row, every row is still an invoice', !withStatus.phpProblems && withStatus.rows >= 1 && withStatus.icons === withStatus.rows, `${withStatus.icons}/${withStatus.rows}`);
   check('filter + status: the seeded Processing invoice is listed', fixtureRows(withStatus, 'invoice_processing').length > 0, fixtureNames(withStatus));
@@ -289,10 +291,20 @@ try {
 
   // --- an unknown value is ignored
   console.log('unknown filter value');
-  await go(`${all.url}${all.url.includes('?') ? '&' : '?'}grvatin_doc=bogus`);
+  const joiner = all.url.includes('?') ? '&' : '?';
+  await go(`${all.url}${joiner}grvatin_doc=bogus`);
   const bogus = await js(FACTS);
   check('same rows as the plain list', bogus.rows === all.rows, `${bogus.rows} vs ${all.rows}`);
-  check('"All" stays current', bogus.current.length === 1 && /^(All|Όλες)/.test(bogus.current[0]), JSON.stringify(bogus.current));
+  if (!classicScreen) {
+    check('"All" stays current', bogus.current.length === 1 && /^(All|Όλες)/.test(bogus.current[0]), JSON.stringify(bogus.current));
+  } else {
+    // The classic posts screen drops the "All" highlight for ANY extra query argument (WordPress core,
+    // WP_Posts_List_Table::is_base_request()), so a bogus value there must behave exactly like an unrelated unknown
+    // argument, and must never highlight our own link.
+    await go(`${all.url}${joiner}grvatin_control=bogus`);
+    const control = await js(FACTS);
+    check('"All" is highlighted exactly as for an unrelated unknown argument, and ours is not current', JSON.stringify(bogus.current) === JSON.stringify(control.current) && !bogus.current.some((t) => t.startsWith('Τιμολόγια')), `bogus=${JSON.stringify(bogus.current)} control=${JSON.stringify(control.current)}`);
+  }
   check('no PHP problems printed in the page', !bogus.phpProblems);
 
   check('no JavaScript exceptions on any page', jsErrors.length === 0, jsErrors.join(' | '));
