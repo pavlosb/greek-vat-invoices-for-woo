@@ -62,6 +62,39 @@ function has_no_meta_query($query) {
     return $mq === '' || $mq === array();
 }
 
+// The order IDs the Orders list shows for the given HPOS list-query args, whichever storage mode the site uses.
+// HPOS: the table feeds those args (including our meta_query) to wc_get_orders(), so do the same. Classic (posts)
+// storage: wc_get_orders() ignores meta_query there (WooCommerce 9.2+ even logs a wc_doing_it_wrong notice) and the
+// screen lists the main WP_Query instead, which our pre_get_posts callback filters. So run that query as the main
+// query on edit.php and let the real hooked callback apply the filter; never re-implement it here. The caller sets
+// $_GET['grvatin_doc'], as for the HPOS path.
+function list_rows($args) {
+    if (\Automattic\WooCommerce\Utilities\OrderUtil::custom_orders_table_usage_is_enabled()) {
+        return wc_get_orders($args);
+    }
+
+    $saved_query = isset($GLOBALS['wp_the_query']) ? $GLOBALS['wp_the_query'] : null;
+    $saved_page  = isset($GLOBALS['pagenow']) ? $GLOBALS['pagenow'] : null;
+
+    $query = new WP_Query();
+    $GLOBALS['wp_the_query'] = $query; // is_main_query() compares against this
+    $GLOBALS['pagenow']      = 'edit.php';
+
+    try {
+        $ids = $query->query(array(
+            'post_type'   => 'shop_order',
+            'post_status' => isset($args['status']) ? $args['status'] : list_statuses(),
+            'nopaging'    => true,
+            'fields'      => 'ids',
+        ));
+    } finally {
+        $GLOBALS['wp_the_query'] = $saved_query;
+        $GLOBALS['pagenow']      = $saved_page;
+    }
+
+    return array_map('intval', $ids);
+}
+
 echo "GRVATIN_Order_List checks (section: $section)\n";
 
 if (!class_exists('GRVATIN_Order_List')) {
@@ -172,7 +205,7 @@ if (wants('filter')) {
     $args = apply_filters($hook, $base);
     check('exact value "invoice": args get a meta_query', !empty($args['meta_query']), show($args));
 
-    $found = wc_get_orders($args);
+    $found = list_rows($args);
     check('both visible seeded invoices are listed', !array_diff(array($ids['invoice_processing'], $ids['invoice_on_hold']), $found), show($found));
     check('receipt, untyped and trashed invoice are not listed', !array_intersect(array($ids['receipt'], $ids['untyped'], $ids['invoice_trashed']), $found), show($found));
 
@@ -294,7 +327,7 @@ if (wants('view')) {
 
     $_GET['grvatin_doc'] = 'invoice';
     $status_args = array('type' => 'shop_order', 'status' => list_statuses(), 'limit' => -1, 'return' => 'ids');
-    $rows = wc_get_orders(apply_filters('woocommerce_order_list_table_prepare_items_query_args', $status_args));
+    $rows = list_rows(apply_filters('woocommerce_order_list_table_prepare_items_query_args', $status_args));
     check('the count equals the rows the filter lists', count($rows) === $n, 'rows=' . count($rows) . " count=$n");
 
     $v2 = apply_filters('views_woocommerce_page_wc-orders', $views_in);
