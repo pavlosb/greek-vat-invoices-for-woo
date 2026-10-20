@@ -166,9 +166,9 @@ You can donate via PayPal to help fund future features: [https://paypal.me/Theod
 
 = 1.2.6 (2026-10-20) =
 * New: the WooCommerce Orders list now marks every order that asked for a Τιμολόγιο with a small document icon in a slim new column, so invoices stand out at a glance in large order lists. Receipts and older orders without a document type show nothing.
-* New: a "Τιμολόγια (N)" link at the end of the status row (next to Processing, Completed and so on) lists only the invoice orders. It is always shown, also as "Τιμολόγια (0)", and its count matches the "All" list (trash excluded).
+* New: a "Τιμολόγια (N)" link at the end of the status row (alongside Processing, Completed and so on) lists only the invoice orders. It is always shown, also as "Τιμολόγια (0)", and its count covers the invoices among the orders in the "All" list (trash excluded). The filter stays active when you use the list's search box or Filter button.
 * Works with both the orders table (HPOS) and the classic orders screen. Display and filter only: nothing is written, every value is escaped, and if anything goes wrong the Orders list is shown exactly as WooCommerce builds it.
-* Cleanup: removed an unused style rule left over from an older version.
+* Cleanup: removed unused style rules left over from an older version.
 
 = 1.2.5 (2026-10-14) =
 * New: on the order edit screen, the invoice details now appear as one tidy card at the bottom of the Billing column — document type (Τιμολόγιο / Απόδειξη), invoice number and date once generated, company name, ΑΦΜ, ΔΟΥ and business activity — instead of plain label/value lines. Empty fields show a dash.

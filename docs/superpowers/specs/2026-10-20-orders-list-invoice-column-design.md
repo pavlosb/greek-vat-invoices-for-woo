@@ -53,12 +53,14 @@ site; the classic-screen ones are standard WordPress hooks.
 
 - Key `grvatin_doc`, inserted right after the checkbox column.
 - Header: icon only, with the screen-reader text "Παραστατικό".
-- Cell: a Dashicon in a small round accent badge, with `title` and
-  `aria-label` "Τιμολόγιο", only when `_billing_invoice_type` is `invoice`.
-  Receipts, and orders with no type (placed before the plugin existed), show an
-  empty cell.
-- Width about 40px through `.column-grvatin_doc`. WordPress hides extra columns
-  on phones and Screen Options can hide it; the filter link still works then.
+- Cell: a Dashicon in a small round accent badge, with a `title` and a
+  screen-reader text "Τιμολόγιο" (no `aria-label`), only when
+  `_billing_invoice_type` is `invoice`. Receipts, and orders with no type
+  (placed before the plugin existed), show an empty cell.
+- A narrow width is requested through `.column-grvatin_doc`, but the real width
+  is the proportional share of WooCommerce's fixed table layout (about 96px, see
+  Known limits). WordPress hides extra columns on phones and Screen Options can
+  hide it; the filter link still works then.
 
 ### The filter link
 
@@ -78,6 +80,12 @@ site; the classic-screen ones are standard WordPress hooks.
   query uses `meta_key` / `meta_value` (not `meta_query`) because the classic
   order data store ignores a `meta_query`; the orders-table list filter uses
   `meta_query`, which `OrdersTableQuery` AND-combines with existing filters.
+- The filter keeps itself through the list's search box and Filter button.
+  Both are GET forms that carry only fixed hidden fields, so the browser would
+  drop `grvatin_doc` from the request. `print_filter_field()` therefore prints a
+  hidden `grvatin_doc=invoice` input into the list form while the filter is
+  active (HPOS: `woocommerce_order_list_table_restrict_manage_orders`; classic:
+  `restrict_manage_posts`). Found by the final whole-branch review.
 
 ### Styling and strings
 
@@ -129,7 +137,7 @@ order with no plugin data, one in trash. Then, in headless Chrome:
 Results on the local XAMPP site (WP 7.1, WooCommerce 11.1, HPOS, real orders
 present, only tagged fixtures created and removed again):
 
-- CLI integration checks (`tests/check-order-list.php`): 61 passed, 0 failed.
+- CLI integration checks (`tests/check-order-list.php`): 71 passed, 0 failed.
 - Headless Chrome on the real HPOS Orders screen (`tests/e2e-orders-list.mjs`):
   all checks passed, with screenshots reviewed by eye. The checks are anchored
   to the seeded fixture rows by name and never act on a real order.
@@ -149,7 +157,16 @@ present, only tagged fixtures created and removed again):
 - Phone and narrow-desktop widths were not looked at; the column renders about
   96px wide (a proportional share of the fixed table layout, not a hard width).
 - "Τιμολόγια (0)" is verified at unit level only: the site's real invoice orders
-  make a live zero impossible without touching real data.
+  make a live zero impossible without touching real data. The text is checked
+  through `get_view_link()` only; a code guard in `add_view()` is excluded by
+  reading the code, not by a test.
+- Users who can edit orders but lack `edit_others_shop_orders` get the HPOS
+  screen id `admin_page_wc-orders`. They see the marker column unstyled (the
+  header text is visible) and no "Τιμολόγια" link, while the URL filter still
+  works.
+- The count N uses WooCommerce's default "All" statuses, so it can differ from
+  the rows shown if another plugin changes
+  `woocommerce_shop_order_list_table_default_statuses`.
 
 ## Out of scope
 

@@ -15,7 +15,10 @@ Version 1.2.6 (2026-10-20)
      orders without a type show nothing.
    • A "Τιμολόγια (N)" link at the end of the status row. One click lists
      only the invoice orders. It is always shown, also as
-     "Τιμολόγια (0)", and N matches the "All" list (trash excluded).
+     "Τιμολόγια (0)", and N counts the invoices among the orders in the
+     "All" list (trash excluded).
+   • The filter stays active when you use the list's search box or Filter
+     button.
 
    New file:
    • includes/class-order-list.php
@@ -28,10 +31,13 @@ Version 1.2.6 (2026-10-20)
 
    Safety notes:
    • Display and filter only: reads existing order meta, writes nothing.
+   • Every value is HTML-escaped.
    • Fail-open: if anything goes wrong the Orders list is shown exactly
      as WooCommerce builds it.
    • Works with the orders table (HPOS) and the classic orders screen.
    • The filter accepts only the exact value ?grvatin_doc=invoice.
+
+------------------------------------------------------------
 
 Version 1.2.5 (2026-10-14)
 ------------------------------------------------------------
