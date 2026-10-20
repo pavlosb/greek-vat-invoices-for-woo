@@ -133,6 +133,7 @@ class GRVATIN_Order_List {
         }
 
         // Only compared with a constant, never echoed or stored, so no sanitizing: the exact value is required
+        // phpcs:ignore WordPress.Security.NonceVerification.Recommended, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
         return wp_unslash($_GET[self::FILTER_ARG]) === self::FILTER_VALUE;
     }
 
