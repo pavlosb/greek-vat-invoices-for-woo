@@ -29,11 +29,13 @@ class GRVATIN_Order_List {
         // Orders table (HPOS)
         add_filter('woocommerce_shop_order_list_table_columns', array($this, 'add_column'), 20);
         add_action('woocommerce_shop_order_list_table_custom_column', array($this, 'render_column'), 10, 2);
+        add_filter('views_woocommerce_page_wc-orders', array($this, 'add_view'));
         add_filter('woocommerce_order_list_table_prepare_items_query_args', array($this, 'filter_query_args'));
 
         // Classic (posts) orders screen. WooCommerce rebuilds this column list at priority 10, so run after it.
         add_filter('manage_shop_order_posts_columns', array($this, 'add_column'), 20);
         add_action('manage_shop_order_posts_custom_column', array($this, 'render_column_classic'), 10, 2);
+        add_filter('views_edit-shop_order', array($this, 'add_view'));
         add_action('pre_get_posts', array($this, 'filter_classic_query'));
     }
 
@@ -175,5 +177,76 @@ class GRVATIN_Order_List {
 
         // WooCommerce already sets a meta_query here for the customer and created-via filters, so merge
         $query->set('meta_query', $this->with_invoice_clause($query->get('meta_query'))); // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query
+    }
+
+    /**
+     * Number of invoice orders, counted over the same statuses as WooCommerce's "All" link
+     * (trash and drafts excluded), so clicking the filter shows exactly this many rows.
+     * Uses meta_key/meta_value because the classic order data store ignores a meta_query.
+     */
+    public function count_invoices() {
+        $statuses = array_values(array_intersect(
+            array_keys(wc_get_order_statuses()),
+            get_post_stati(array('show_in_admin_all_list' => true), 'names')
+        ));
+
+        $result = wc_get_orders(array(
+            'type'       => 'shop_order',
+            'status'     => $statuses,
+            'limit'      => 1,
+            'paginate'   => true,
+            'return'     => 'ids',
+            'meta_key'   => self::META_KEY, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key
+            'meta_value' => self::FILTER_VALUE, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_value
+        ));
+
+        return (is_object($result) && isset($result->total)) ? (int) $result->total : 0;
+    }
+
+    /**
+     * One status-row link in WooCommerce's own markup. Always rendered, also for a count of 0.
+     */
+    public function get_view_link($url, $count, $active) {
+        return '<a href="' . esc_url($url) . '"' . ($active ? ' class="current" aria-current="page"' : '') . '>'
+            . esc_html__('Τιμολόγια', 'greek-vat-invoices-for-woocommerce')
+            . ' <span class="count">(' . esc_html(number_format_i18n((int) $count)) . ')</span></a>';
+    }
+
+    /**
+     * Append the "Τιμολόγια (N)" link to the status row (orders table and classic screen).
+     * Read-only and fail-open: if the count cannot be made the row is left exactly as it was.
+     */
+    public function add_view($views) {
+        if (!is_array($views)) {
+            return $views;
+        }
+
+        try {
+            $base   = (current_filter() === 'views_edit-shop_order')
+                ? admin_url('edit.php?post_type=shop_order')
+                : admin_url('admin.php?page=wc-orders');
+            $active = $this->is_filter_active();
+            $link   = $this->get_view_link(add_query_arg(self::FILTER_ARG, self::FILTER_VALUE, $base), $this->count_invoices(), $active);
+        } catch (\Throwable $e) {
+            return $views;
+        }
+
+        // Our filter replaces the status filter, so "All" must not stay highlighted next to it
+        if ($active && isset($views['all'])) {
+            $views['all'] = $this->without_current($views['all']);
+        }
+
+        $views[self::VIEW_KEY] = $link;
+
+        return $views;
+    }
+
+    /**
+     * Remove the current-link markup (WooCommerce: class="current"; WordPress core adds aria-current).
+     */
+    private function without_current($html) {
+        $stripped = preg_replace(array('/\sclass=(["\'])current\1/', '/\saria-current=(["\'])page\1/'), '', (string) $html);
+
+        return $stripped === null ? $html : $stripped;
     }
 }
