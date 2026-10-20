@@ -2,6 +2,37 @@
  Greek VAT & Invoices for WooCommerce - What's New
 ============================================================
 
+Version 1.2.6 (2026-10-20)
+------------------------------------------------------------
+
+ ★ New: Invoice Marker and Filter on the Orders List
+
+   Shops with many orders could not tell at a glance which orders asked
+   for a Τιμολόγιο. The WooCommerce Orders list now has:
+
+   • A slim icon column right after the checkbox: a round document icon
+     on every order whose document type is Τιμολόγιο. Receipts and older
+     orders without a type show nothing.
+   • A "Τιμολόγια (N)" link at the end of the status row. One click lists
+     only the invoice orders. It is always shown, also as
+     "Τιμολόγια (0)", and N matches the "All" list (trash excluded).
+
+   New file:
+   • includes/class-order-list.php
+
+   Modified files:
+   • greek-vat-invoices-for-woocommerce.php (load + init, version bump,
+     stylesheet also loaded on the classic Orders screen)
+   • assets/css/admin.css (marker styles; removed the unused
+     .grvatin-invoice-column rules)
+
+   Safety notes:
+   • Display and filter only: reads existing order meta, writes nothing.
+   • Fail-open: if anything goes wrong the Orders list is shown exactly
+     as WooCommerce builds it.
+   • Works with the orders table (HPOS) and the classic orders screen.
+   • The filter accepts only the exact value ?grvatin_doc=invoice.
+
 Version 1.2.5 (2026-10-14)
 ------------------------------------------------------------
 

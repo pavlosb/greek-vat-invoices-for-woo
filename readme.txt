@@ -4,7 +4,7 @@ Tags: woocommerce, timologia, timologio, greek, checkout
 Requires at least: 5.0
 Tested up to: 7.1
 Requires PHP: 7.0
-Stable tag: 1.2.5
+Stable tag: 1.2.6
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -164,6 +164,12 @@ You can donate via PayPal to help fund future features: [https://paypal.me/Theod
 
 == Changelog ==
 
+= 1.2.6 (2026-10-20) =
+* New: the WooCommerce Orders list now marks every order that asked for a Τιμολόγιο with a small document icon in a slim new column, so invoices stand out at a glance in large order lists. Receipts and older orders without a document type show nothing.
+* New: a "Τιμολόγια (N)" link at the end of the status row (next to Processing, Completed and so on) lists only the invoice orders. It is always shown, also as "Τιμολόγια (0)", and its count matches the "All" list (trash excluded).
+* Works with both the orders table (HPOS) and the classic orders screen. Display and filter only: nothing is written, every value is escaped, and if anything goes wrong the Orders list is shown exactly as WooCommerce builds it.
+* Cleanup: removed an unused style rule left over from an older version.
+
 = 1.2.5 (2026-10-14) =
 * New: on the order edit screen, the invoice details now appear as one tidy card at the bottom of the Billing column — document type (Τιμολόγιο / Απόδειξη), invoice number and date once generated, company name, ΑΦΜ, ΔΟΥ and business activity — instead of plain label/value lines. Empty fields show a dash.
 * Block Checkout: WooCommerce's plain lines for these fields are hidden in the read-only order view; the edit form behind the pencil icon is unchanged, so every field is still editable. Classic Checkout: the card replaces the previous "Στοιχεία Τιμολογίου" block.
@@ -223,6 +229,9 @@ You can donate via PayPal to help fund future features: [https://paypal.me/Theod
 * Company information fields
 
 == Upgrade Notice ==
+
+= 1.2.6 =
+New: invoices are marked with an icon on the Orders list, plus a "Τιμολόγια" filter link in the status row. Display and filter only — no settings or data changes.
 
 = 1.2.5 =
 New: invoice details are shown as one tidy card in the Billing column of the order edit screen. Display only — no settings or data changes.
