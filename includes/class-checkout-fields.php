@@ -74,10 +74,9 @@ class GRVATIN_Checkout_Fields {
             'class' => array('form-row-wide', 'wcgvi-invoice-type-field'),
             'priority' => $invoice_type_priority,
             'options' => array(
-                'receipt' => __('Απόδειξη', 'greek-vat-invoices-for-woocommerce'),
                 'invoice' => __('Τιμολόγιο', 'greek-vat-invoices-for-woocommerce')
             ),
-            'default' => 'receipt'
+            'default' => 'invoice'
         );
         
         // Company name - configure existing WooCommerce field
@@ -196,8 +195,13 @@ class GRVATIN_Checkout_Fields {
      */
     public function validate_invoice_fields($data, $errors) {
         // Nonce is verified by WooCommerce checkout process
-        $invoice_type = isset($_POST['billing_invoice_type']) ? sanitize_text_field(wp_unslash($_POST['billing_invoice_type'])) : 'receipt'; // phpcs:ignore WordPress.Security.NonceVerification.Missing
+        $invoice_type = isset($_POST['billing_invoice_type']) ? sanitize_text_field(wp_unslash($_POST['billing_invoice_type'])) : 'invoice'; // phpcs:ignore WordPress.Security.NonceVerification.Missing
         
+        if ($invoice_type !== 'invoice') {
+            $errors->add('billing_invoice_type', __('Επιτρέπεται μόνο η έκδοση τιμολογίου.', 'greek-vat-invoices-for-woocommerce'));
+            return;
+        }
+
         if ($invoice_type === 'invoice') {
             // Validate required fields for invoice (each gated by its own setting)
             if (get_option('GRVATIN_require_company', 'yes') === 'yes' && empty($_POST['billing_company'])) { // phpcs:ignore WordPress.Security.NonceVerification.Missing
@@ -225,9 +229,8 @@ class GRVATIN_Checkout_Fields {
      */
     public function save_invoice_fields($order_id) {
         // Nonce is verified by WooCommerce checkout process
-        if (isset($_POST['billing_invoice_type'])) { // phpcs:ignore WordPress.Security.NonceVerification.Missing
-            update_post_meta($order_id, '_billing_invoice_type', sanitize_text_field(wp_unslash($_POST['billing_invoice_type']))); // phpcs:ignore WordPress.Security.NonceVerification.Missing
-        }
+        // Only invoices are offered; never persist a legacy receipt selection.
+        update_post_meta($order_id, '_billing_invoice_type', 'invoice');
         
         if (isset($_POST['billing_vat_number'])) { // phpcs:ignore WordPress.Security.NonceVerification.Missing
             $vat = sanitize_text_field(wp_unslash($_POST['billing_vat_number'])); // phpcs:ignore WordPress.Security.NonceVerification.Missing
@@ -258,9 +261,7 @@ class GRVATIN_Checkout_Fields {
      * Save fields to customer profile
      */
     public function save_customer_fields($customer, $data) {
-        if (isset($data['billing_invoice_type'])) {
-            $customer->update_meta_data('billing_invoice_type', sanitize_text_field($data['billing_invoice_type']));
-        }
+        $customer->update_meta_data('billing_invoice_type', 'invoice');
         
         if (isset($data['billing_vat_number']) && !empty($data['billing_vat_number'])) {
             $vat = sanitize_text_field($data['billing_vat_number']);
