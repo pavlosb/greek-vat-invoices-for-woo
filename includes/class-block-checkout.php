@@ -35,7 +35,7 @@ class GRVATIN_Block_Checkout {
      * Set default value for invoice type select
      */
     public function default_invoice_type($value, $group, $wc_object) {
-        return 'receipt';
+        return 'invoice';
     }
 
     /**
@@ -144,10 +144,6 @@ class GRVATIN_Block_Checkout {
             'index'            => $base_index,
             'options'          => array(
                 array(
-                    'value' => 'receipt',
-                    'label' => __('Απόδειξη', 'greek-vat-invoices-for-woocommerce'),
-                ),
-                array(
                     'value' => 'invoice',
                     'label' => __('Τιμολόγιο', 'greek-vat-invoices-for-woocommerce'),
                 ),
@@ -211,14 +207,14 @@ class GRVATIN_Block_Checkout {
      * Sanitize invoice type value
      */
     public function sanitize_invoice_type($value) {
-        return in_array($value, array('receipt', 'invoice'), true) ? $value : 'receipt';
+        return sanitize_text_field($value);
     }
 
     /**
      * Validate invoice type
      */
     public function validate_invoice_type($value) {
-        if (!in_array($value, array('receipt', 'invoice'), true)) {
+        if ($value !== 'invoice') {
             return new WP_Error('invalid_invoice_type', __('Μη έγκυρος τύπος παραστατικού.', 'greek-vat-invoices-for-woocommerce'));
         }
     }
@@ -294,7 +290,7 @@ class GRVATIN_Block_Checkout {
                 return sanitize_text_field($data['additional_fields']['grvatin/invoice-type']);
             }
         }
-        return 'receipt';
+        return 'invoice';
     }
 
     /**
@@ -313,7 +309,7 @@ class GRVATIN_Block_Checkout {
             return;
         }
 
-        $sanitized = sanitize_text_field($value);
+        $sanitized = $key === 'grvatin/invoice-type' ? 'invoice' : sanitize_text_field($value);
 
         if ($key === 'grvatin/company-name') {
             $wc_object->set_billing_company($sanitized);
